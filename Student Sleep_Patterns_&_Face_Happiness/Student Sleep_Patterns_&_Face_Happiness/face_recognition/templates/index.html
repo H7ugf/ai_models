@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحليل المشاعر</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            background-color: #2C3E50;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        h1 {
+            margin-top: 20px;
+            font-size: 2.5em;
+        }
+        #video {
+            border: 2px solid #27AE60;
+            border-radius: 5px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 640px;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #27AE60;
+        }
+        .btn-custom {
+            background-color: #27AE60;
+            border: none;
+        }
+        .btn-custom:hover {
+            background-color: #219150;
+        }
+        #selectedImage {
+            display: none;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 640px;
+            border: 2px solid #27AE60;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container text-center">
+        <h1><i class="fas fa-smile-beam"></i> تطبيق تحليل المشاعر</h1>
+        <video id="video" class="img-fluid" autoplay></video>
+        <br>
+        <button id="capture" class="btn btn-custom btn-lg mt-3">
+            <i class="fas fa-camera"></i> التقاط الصورة
+        </button>
+        <input type="file" id="fileInput" class="mt-3" accept="image/*" style="display: none;">
+        <button id="upload" class="btn btn-custom btn-lg mt-3" onclick="document.getElementById('fileInput').click();">
+            <i class="fas fa-upload"></i> اختيار صورة من المعرض
+        </button>
+        <img id="selectedImage" class="img-fluid mt-3">
+        <div id="result" class="mt-3"></div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('capture');
+        const resultDiv = document.getElementById('result');
+        const fileInput = document.getElementById('fileInput');
+        const selectedImage = document.getElementById('selectedImage');
+
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error("Error accessing camera: ", err);
+                alert("لم نتمكن من فتح الكاميرا، يرجى التحقق من الأذونات.");
+            });
+
+        captureButton.addEventListener('click', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 640;
+            canvas.height = 480;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            canvas.toBlob(blob => {
+                const formData = new FormData();
+                formData.append('image', blob);
+
+                fetch('/predict', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    resultDiv.innerText = 'النتيجة: ' + data.result;
+                });
+            });
+        });
+
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                selectedImage.src = event.target.result; // عرض الصورة المحددة
+                selectedImage.style.display = 'block'; // إظهار الصورة
+
+                const formData = new FormData();
+                const imageBlob = new Blob([event.target.result], { type: file.type });
+                formData.append('image', imageBlob);
+
+                fetch('/predict', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.json())
+                .then(data => {
+                    resultDiv.innerText = 'النتيجة: ' + data.result;
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
